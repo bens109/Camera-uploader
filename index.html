@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Camera Upload</title>
+<title>iPhone Style Camera Upload</title>
 <style>
 body, html {
   margin: 0;
@@ -98,6 +98,7 @@ button, input[type="file"] {
     <button id="captureBtn"></button>
     <button id="toggleCamera" class="sideBtn">🔁</button>
     <button id="torchBtn" class="sideBtn">⚡</button>
+    <button id="selfieBtn" class="sideBtn">🤳</button>
   </div>
   <div id="progressContainer">
     <div id="progressBar"></div>
@@ -114,6 +115,7 @@ const snapshot = document.getElementById('snapshot');
 const captureBtn = document.getElementById('captureBtn');
 const toggleBtn = document.getElementById('toggleCamera');
 const torchBtn = document.getElementById('torchBtn');
+const selfieBtn = document.getElementById('selfieBtn');
 const fileInput = document.getElementById('fileInput');
 const progressContainer = document.getElementById('progressContainer');
 const progressBar = document.getElementById('progressBar');
@@ -140,6 +142,12 @@ initCamera();
 // Toggle front/back
 toggleBtn.addEventListener('click', ()=>{
   facingMode = (facingMode==='user')?'environment':'user';
+  initCamera();
+});
+
+// Selfie mode button
+selfieBtn.addEventListener('click', ()=>{
+  facingMode = 'user';
   initCamera();
 });
 
@@ -224,8 +232,8 @@ function uploadBlob(blob){
     xhr.upload.onprogress = e=>{
       if(e.lengthComputable){
         const percent = Math.round(e.loaded/e.total*100);
-        progressBar.style.width=percent+"%";
-        statusText.textContent=`Uploading ${percent}%`;
+        progressBar.style.width = percent + "%";
+        statusText.textContent = `Uploading ${percent}%`;
       }
     };
     xhr.onload = ()=>{
@@ -233,7 +241,12 @@ function uploadBlob(blob){
         progressBar.style.width="100%";
         statusText.textContent="✅ Uploaded!";
       } else statusText.textContent="⚠️ Upload failed";
-      setTimeout(()=>{ progressContainer.style.display="none"; progressBar.style.width="0%"; statusText.textContent=""; resolve(); },1500);
+      setTimeout(()=>{
+        progressContainer.style.display="none";
+        progressBar.style.width="0%";
+        statusText.textContent="";
+        resolve();
+      },1500);
     };
     xhr.onerror = ()=>{
       statusText.textContent="⚠️ Error uploading";
