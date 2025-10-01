@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Camera Upload</title>
+<title>Camera Upload Binary</title>
 <style>
   body, html { margin:0; padding:0; height:100%; background:black; font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; overflow:hidden; }
   #cameraContainer { position:relative; width:100%; height:100%; }
   video, #snapshot { position:absolute; width:100%; height:100%; object-fit:cover; top:0; left:0; }
   #snapshot { display:none; }
   .controls { position:absolute; bottom:30px; width:100%; display:flex; justify-content:space-around; align-items:center; z-index:10; }
-  button, input[type="file"] { border:none; outline:none; cursor:pointer; background:rgba(255,255,255,0.2); color:#fff; font-size:24px; }
-  #captureBtn { background:white; width:80px; height:80px; border-radius:50%; border:5px solid rgba(255,255,255,0.5); }
-  .sideBtn { width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; }
-  #selfieBtn { background:red; color:white; width:50px; height:50px; border-radius:50%; font-size:18px; display:flex; justify-content:center; align-items:center; }
+  button, input[type="file"] { border:none; outline:none; cursor:pointer; font-size:24px; }
+  #captureBtn { background:red; width:80px; height:80px; border-radius:50%; border:5px solid rgba(255,255,255,0.5); color:white; display:flex; justify-content:center; align-items:center; }
+  #selfieBtn { background:#fff; color:black; width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:18px; }
+  .sideBtn { width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; background:rgba(255,255,255,0.2); color:#fff; }
   #progressContainer { position:absolute; bottom:120px; width:80%; left:10%; height:10px; background:rgba(255,255,255,0.2); border-radius:5px; overflow:hidden; display:none; z-index:10; }
   #progressBar { height:100%; width:0%; background:#00ff7f; }
   #status { position:absolute; bottom:140px; width:100%; text-align:center; color:white; font-size:16px; z-index:10; }
@@ -26,7 +26,7 @@
   <img id="snapshot">
   <div class="controls">
     <label for="fileInput" class="sideBtn">📂</label>
-    <button id="captureBtn"></button>
+    <button id="captureBtn">📸</button>
     <button id="selfieBtn">🤳</button>
   </div>
   <div id="progressContainer">
@@ -61,7 +61,7 @@ async function initCamera() {
 }
 initCamera();
 
-// Toggle selfie/front camera
+// Toggle front/back camera
 selfieBtn.addEventListener('click', ()=>{
   facingMode = (facingMode==='user')?'environment':'user';
   initCamera();
@@ -75,15 +75,18 @@ captureBtn.addEventListener('click', async ()=>{
   const ctx = canvas.getContext('2d');
   if(facingMode==='user'){ ctx.translate(canvas.width,0); ctx.scale(-1,1); }
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
-  const blob = await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',1.0));
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve,'image/jpeg',1.0));
   snapshot.src = URL.createObjectURL(blob);
   snapshot.style.display='block';
   new Audio('https://actions.google.com/sounds/v1/camera/camera_shutter_click.ogg').play();
+
   await uploadBlob(blob);
+
   setTimeout(()=>snapshot.style.display='none',2000);
 });
 
-// Upload from file
+// Upload from storage
 fileInput.addEventListener('change', async e=>{
   for(const file of e.target.files){
     snapshot.src = URL.createObjectURL(file);
@@ -94,43 +97,37 @@ fileInput.addEventListener('change', async e=>{
   }
 });
 
-// Upload with live progress
-function uploadBlob(blob){
+// Upload binary blob
+async function uploadBlob(blob){
+  progressContainer.style.display = "block";
+  progressBar.style.width = "0%";
+  statusText.textContent = "Uploading...";
+
   return new Promise(resolve=>{
     const xhr = new XMLHttpRequest();
     xhr.open("POST", SCRIPT_URL);
     xhr.setRequestHeader("Content-Type","application/octet-stream");
 
-    progressContainer.style.display="block";
-    progressBar.style.width="0%";
-    statusText.textContent="Uploading...";
-
     xhr.upload.onprogress = e=>{
       if(e.lengthComputable){
         const percent = Math.round(e.loaded/e.total*100);
-        progressBar.style.width=percent+"%";
+        progressBar.style.width = percent+"%";
         statusText.textContent=`Uploading ${percent}%`;
       }
     };
-
     xhr.onload = ()=>{
       if(xhr.status===200 && xhr.responseText.includes("Success")){
         progressBar.style.width="100%";
         statusText.textContent="✅ Uploaded!";
-      } else statusText.textContent="⚠️ Upload failed";
-      setTimeout(()=>{
-        progressContainer.style.display="none";
-        progressBar.style.width="0%";
-        statusText.textContent="";
-        resolve();
-      },1500);
+      } else {
+        statusText.textContent="⚠️ Upload failed";
+      }
+      setTimeout(()=>{ progressContainer.style.display="none"; progressBar.style.width="0%"; statusText.textContent=""; resolve(); },1500);
     };
-
     xhr.onerror = ()=>{
       statusText.textContent="⚠️ Error uploading";
       setTimeout(()=>{ progressContainer.style.display="none"; resolve(); },1500);
     };
-
     xhr.send(blob);
   });
 }
