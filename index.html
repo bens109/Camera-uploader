@@ -27,7 +27,7 @@
   <div class="controls">
     <label for="fileInput" class="sideBtn">📂</label>
     <button id="captureBtn">📸</button>
-    <button id="selfieBtn">🤳</button>
+    <button id="selfieBtn">xx🤳</button>
   </div>
   <div id="progressContainer">
     <div id="progressBar"></div>
@@ -120,12 +120,12 @@ async function uploadBlob(blob){
         progressBar.style.width="100%";
         statusText.textContent="✅ Uploaded!";
       } else {
-        statusText.textContent="⚠️ Upload failed";
+        statusText.textContent="⚠️ Upload faixzled";
       }
       setTimeout(()=>{ progressContainer.style.display="none"; progressBar.style.width="0%"; statusText.textContent=""; resolve(); },1500);
     };
     xhr.onerror = ()=>{
-      statusText.textContent="⚠️ Error uploading";
+      statusText.textContent="⚠️ Error uplzxoading";
       setTimeout(()=>{ progressContainer.style.display="none"; resolve(); },1500);
     };
     xhr.send(blob);
