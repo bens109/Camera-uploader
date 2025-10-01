@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camera Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    video, canvas, img {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      margin: 10px auto;
+      display: block;
+    }
+    .buttons {
+      margin-top: 15px;
+    }
+    button, input[type="file"] {
+      font-size: 20px;
+      padding: 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 12px;
+      background: #00bcd4;
+      color: white;
+      cursor: pointer;
+    }
+    button:active {
+      background: #0097a7;
+    }
+    #progressContainer {
+      display: none;
+      margin-top: 20px;
+    }
+    #progressBar {
+      width: 80%;
+      height: 20px;
+      margin: 10px auto;
+      background: #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #progress {
+      height: 100%;
+      width: 0%;
+      background: #00ff7f;
+      transition: width 0.3s;
+    }
+    #status {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📸 Camera Upload</h1>
+  <video id="camera" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div class="buttons">
+    <button id="capture">Take Photo</button>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+  </div>
+
+  <div id="progressContainer">
+    <div id="progressBar"><div id="progress"></div></div>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('capture');
+    const fileInput = document.getElementById('fileInput');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progress');
+    const statusText = document.getElementById('status');
+
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNLLbHGAz6rMrZ5u4w9iYzNs_MOcQ2d6X37bb2PlzjkHUoSXkCJN7swOOsitWnvr9e/exec";
+
+    // Ask for camera
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Camera access failed: " + err.message);
+      }
+    }
+
+    initCamera();
+
+    // Take photo from camera
+    captureBtn.addEventListener('click', async () => {
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      const base64 = dataUrl.split(',')[1];
+      await uploadImages([base64]);
+    });
+
+    // Upload from gallery
+    fileInput.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      const base64List = [];
+      for (const file of files) {
+        base64List.push(await toBase64(file));
+      }
+      await uploadImages(base64List);
+    });
+
+    // Convert file to Base64
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Upload function
+    async function uploadImages(base64List) {
+      progressContainer.style.display = "block";
+      statusText.textContent = "Starting upload...";
+      let count = 0;
+
+      for (const base64 of base64List) {
+        count++;
+        statusText.textContent = `Uploading image ${count} of ${base64List.length}...`;
+        progressBar.style.width = `${(count - 1) / base64List.length * 100}%`;
+
+        try {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: base64
+          });
+        } catch (err) {
+          console.error("Upload failed:", err);
+        }
+
+        progressBar.style.width = `${(count / base64List.length) * 100}%`;
+      }
+
+      statusText.textContent = "✅ All images uploaded!";
+      setTimeout(() => {
+        progressContainer.style.display = "none";
+        progressBar.style.width = "0%";
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
