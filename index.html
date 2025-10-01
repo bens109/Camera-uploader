@@ -5,18 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Camera Upload</title>
   <style>
-    html, body {
+    body, html {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: black;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       overflow: hidden;
+      color: white;
+    }
+    #cameraContainer {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: black;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      color: white;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     video {
       width: 100%;
@@ -25,101 +31,106 @@
     }
     #controls {
       position: absolute;
-      bottom: 40px;
+      bottom: 30px;
       width: 100%;
       display: flex;
-      justify-content: center;
+      justify-content: space-around;
       align-items: center;
-      gap: 20px;
       z-index: 10;
     }
     button, label {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255,255,255,0.2);
       border: none;
       color: white;
-      font-size: 20px;
+      font-size: 22px;
       padding: 15px 20px;
       border-radius: 50%;
       cursor: pointer;
     }
     #captureBtn {
+      background: white;
       width: 80px;
       height: 80px;
-      background: white;
-      border: 5px solid rgba(255,255,255,0.3);
       border-radius: 50%;
+      border: 5px solid rgba(255,255,255,0.5);
     }
-    #toggleBtn {
+    #selfieBtn {
       background: red;
     }
-    #fileInput { display: none; }
+    input[type="file"] {
+      display: none;
+    }
     #progressContainer {
       position: absolute;
       bottom: 120px;
       width: 80%;
       left: 10%;
-      background: rgba(255,255,255,0.2);
-      border-radius: 10px;
-      overflow: hidden;
       height: 10px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 5px;
+      overflow: hidden;
       display: none;
     }
     #progressBar {
-      width: 0%;
       height: 100%;
+      width: 0%;
       background: #00ff7f;
-      transition: width 0.1s linear;
+      transition: width 0.2s;
     }
     #status {
       position: absolute;
       bottom: 140px;
       width: 100%;
       text-align: center;
-      font-size: 18px;
+      font-size: 16px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <video id="camera" autoplay playsinline></video>
-  <div id="controls">
-    <label for="fileInput" title="Upload from gallery">📂</label>
-    <button id="captureBtn" title="Take photo"></button>
-    <button id="toggleBtn" title="Switch camera">🔁</button>
+  <div id="cameraContainer">
+    <video id="camera" autoplay playsinline></video>
+
+    <div id="controls">
+      <label for="fileInput">📂</label>
+      <button id="captureBtn"></button>
+      <button id="selfieBtn">🤳</button>
+    </div>
+
+    <div id="progressContainer">
+      <div id="progressBar"></div>
+    </div>
+    <div id="status"></div>
   </div>
-  <div id="progressContainer">
-    <div id="progressBar"></div>
-  </div>
-  <div id="status"></div>
+
   <input type="file" id="fileInput" accept="image/*" multiple>
-  
+
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNLLbHGAz6rMrZ5u4w9iYzNs_MOcQ2d6X37bb2PlzjkHUoSXkCJN7swOOsitWnvr9e/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrDwE3dQ-htfFl90dJdhKGM2kI8irQBKy4LGJgpKUCKlv3grX1MUjHbshzPX-ipgXgnw/exec";
     const video = document.getElementById('camera');
     const captureBtn = document.getElementById('captureBtn');
-    const toggleBtn = document.getElementById('toggleBtn');
+    const selfieBtn = document.getElementById('selfieBtn');
     const fileInput = document.getElementById('fileInput');
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
     const statusText = document.getElementById('status');
+
     let facingMode = 'environment';
-    let stream = null;
+    let stream;
 
     async function initCamera() {
       if (stream) stream.getTracks().forEach(t => t.stop());
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
         video.srcObject = stream;
-        video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
       } catch (err) {
-        alert("Camera error: " + err.message);
+        alert("Camera access failed: " + err.message);
       }
     }
     initCamera();
 
-    toggleBtn.addEventListener('click', () => {
-      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+    selfieBtn.addEventListener('click', () => {
+      facingMode = (facingMode === 'user') ? 'environment' : 'user';
       initCamera();
     });
 
@@ -133,53 +144,57 @@
         ctx.scale(-1, 1);
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 1.0));
-      await uploadBlob(blob);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
+      uploadBlob(blob);
     });
 
     fileInput.addEventListener('change', async e => {
-      for (const file of e.target.files) await uploadBlob(file);
+      for (const file of e.target.files) {
+        uploadBlob(file);
+      }
     });
 
     function uploadBlob(blob) {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", SCRIPT_URL);
         xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
         progressContainer.style.display = "block";
         progressBar.style.width = "0%";
-        statusText.textContent = "Uploading... 0%";
+        statusText.textContent = "Uploading...";
 
         xhr.upload.onprogress = e => {
           if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
+            const percent = Math.round(e.loaded / e.total * 100);
             progressBar.style.width = percent + "%";
-            statusText.textContent = `Uploading... ${percent}%`;
+            statusText.textContent = `Uploading ${percent}%`;
           }
         };
 
         xhr.onload = () => {
           if (xhr.status === 200 && xhr.responseText.includes("Success")) {
+            progressBar.style.width = "100%";
             statusText.textContent = "✅ Uploaded!";
           } else {
-            statusText.textContent = "⚠️ Upload failed!";
+            statusText.textContent = "⚠️ Upload failed";
           }
           setTimeout(() => {
             progressContainer.style.display = "none";
             progressBar.style.width = "0%";
             statusText.textContent = "";
             resolve();
-          }, 2000);
+          }, 1500);
         };
+
         xhr.onerror = () => {
-          statusText.textContent = "⚠️ Network error!";
+          statusText.textContent = "⚠️ Error uploading";
           setTimeout(() => {
             progressContainer.style.display = "none";
-            statusText.textContent = "";
             resolve();
-          }, 2000);
+          }, 1500);
         };
+
         xhr.send(blob);
       });
     }
