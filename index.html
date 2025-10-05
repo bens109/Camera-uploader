@@ -200,7 +200,7 @@ fileInput.addEventListener('change', async e => {
   }
 });
 
-// 🚀 Upload using fetch (binary)
+// 🚀 Upload using fetch (raw binary)
 async function uploadBlob(blob) {
   progressContainer.style.display = "block";
   progressBar.style.width = "0%";
@@ -209,20 +209,21 @@ async function uploadBlob(blob) {
   try {
     const response = await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: blob
+      body: blob // let browser set the headers
     });
 
-    const resultText = await response.text();
+    const result = await response.json();
     progressBar.style.width = "100%";
 
-    if (response.ok && resultText.includes("Success")) {
+    if (response.ok && result.status === "success") {
       statusText.textContent = "✅ Uploaded!";
+      console.log("File uploaded:", result.fileUrl);
     } else {
-      statusText.textContent = "⚠️ Upload failed";
+      throw new Error(result.message || "Upload failed");
     }
   } catch (err) {
-    statusText.textContent = "⚠️ Error uploading";
+    console.error(err);
+    statusText.textContent = "⚠️ Error: " + err.message;
   }
 
   setTimeout(() => {
