@@ -1,237 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>High-Quality Camera Upload</title>
+  <meta charset="UTF-8" />
+  <title>Photo Upload</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: black;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      overflow: hidden;
-    }
-    #cameraContainer {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: black;
-    }
-    video, #snapshot {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      top: 0;
-      left: 0;
-    }
-    #snapshot {
-      display: none;
-      z-index: 5;
-    }
-    .controls {
-      position: absolute;
-      bottom: 40px;
-      width: 100%;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      z-index: 10;
-    }
-    button, label {
-      border: none;
-      outline: none;
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      font-size: 24px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-    }
-    #captureBtn {
-      background: white;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 5px solid rgba(255,255,255,0.5);
-    }
-    .sideBtn {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-    }
-    #progressContainer {
-      position: absolute;
-      bottom: 130px;
-      width: 80%;
-      left: 10%;
-      height: 10px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 5px;
-      overflow: hidden;
-      display: none;
-      z-index: 10;
-    }
-    #progressBar {
-      height: 100%;
-      width: 0%;
-      background: #00ff7f;
-    }
-    #status {
-      position: absolute;
-      bottom: 150px;
-      width: 100%;
-      text-align: center;
-      color: white;
-      font-size: 16px;
-      z-index: 10;
-    }
-    #fileInput {
-      display: none;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    #progressContainer { display: none; margin-top: 10px; }
+    #progressBar { width: 0%; height: 10px; background: #4caf50; transition: width 0.3s; }
+    #statusText { margin-top: 8px; }
   </style>
 </head>
 <body>
-  <div id="cameraContainer">
-    <video id="camera" autoplay playsinline></video>
-    <img id="snapshot">
-    <div class="controls">
-      <label for="fileInput" class="sideBtn">📂</label>
-      <button id="captureBtn"></button>
-      <button id="toggleCamera" class="sideBtn">🔁</button>
-      <button id="torchBtn" class="sideBtn">⚡</button>
-    </div>
-    <div id="progressContainer">
-      <div id="progressBar"></div>
-    </div>
-    <div id="status"></div>
+  <h2>📸 Upload Photo</h2>
+  <input type="file" accept="image/*" id="fileInput">
+  <div id="progressContainer">
+    <div id="progressBar"></div>
+    <div id="statusText"></div>
   </div>
-  <input type="file" id="fileInput" accept="image/*" multiple>
 
-<script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXgRlQJFiJHwYu-fZlM7kToSlM3u80s1TaW3QBK1ld6NIuimt2nzfPNh4QwrCZVEwzqw/exec";
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXgRlQJFiJHwYu-fZlM7kToSlM3u80s1TaW3QBK1ld6NIuimt2nzfPNh4QwrCZVEwzqw/exec";
+    const fileInput = document.getElementById('fileInput');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
 
-const video = document.getElementById('camera');
-const snapshot = document.getElementById('snapshot');
-const captureBtn = document.getElementById('captureBtn');
-const toggleBtn = document.getElementById('toggleCamera');
-const torchBtn = document.getElementById('torchBtn');
-const fileInput = document.getElementById('fileInput');
-const progressContainer = document.getElementById('progressContainer');
-const progressBar = document.getElementById('progressBar');
-const statusText = document.getElementById('status');
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-let facingMode = 'environment';
-let stream, track;
-let torchOn = false;
+      progressContainer.style.display = "block";
+      progressBar.style.width = "0%";
+      statusText.textContent = "Uploading...";
 
-// ✅ Request highest quality available
-async function initCamera() {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: facingMode,
-        width: { ideal: 4096 },
-        height: { ideal: 2160 }
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: formData
+        });
+
+        const result = await response.json();
+        progressBar.style.width = "100%";
+
+        if (response.ok && result.status === "success") {
+          statusText.textContent = "✅ Uploaded: " + result.fileName;
+          console.log("File URL:", result.fileUrl);
+        } else {
+          throw new Error(result.message || "Upload failed");
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+        statusText.textContent = "⚠️ Error: " + err.message;
       }
+
+      setTimeout(() => {
+        progressContainer.style.display = "none";
+        progressBar.style.width = "0%";
+        statusText.textContent = "";
+      }, 3000);
     });
-    video.srcObject = stream;
-    track = stream.getVideoTracks()[0];
-    video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
-  } catch (e) {
-    alert("Camera access failed: " + e.message);
-  }
-}
-initCamera();
-
-// 🔁 Toggle front/back
-toggleBtn.addEventListener('click', () => {
-  facingMode = (facingMode === 'user') ? 'environment' : 'user';
-  initCamera();
-});
-
-// ⚡ Torch toggle
-torchBtn.addEventListener('click', async () => {
-  if (!track) return;
-  const cap = track.getCapabilities();
-  if (cap.torch) {
-    torchOn = !torchOn;
-    await track.applyConstraints({ advanced: [{ torch: torchOn }] });
-  } else {
-    alert("Torch not supported on this device.");
-  }
-});
-
-// 📸 Capture high-quality photo
-captureBtn.addEventListener('click', async () => {
-  const settings = track.getSettings();
-  const canvas = document.createElement('canvas');
-  canvas.width = settings.width || video.videoWidth;
-  canvas.height = settings.height || video.videoHeight;
-
-  const ctx = canvas.getContext('2d');
-  if (facingMode === 'user') {
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-  }
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
-
-  snapshot.src = URL.createObjectURL(blob);
-  snapshot.style.display = 'block';
-  new Audio('https://actions.google.com/sounds/v1/camera/camera_shutter_click.ogg').play();
-
-  await uploadBlob(blob);
-  setTimeout(() => snapshot.style.display = 'none', 1500);
-});
-
-// 📂 File input upload
-fileInput.addEventListener('change', async e => {
-  for (const file of e.target.files) {
-    snapshot.src = URL.createObjectURL(file);
-    snapshot.style.display = 'block';
-    await uploadBlob(file);
-    await new Promise(r => setTimeout(r, 1500));
-    snapshot.style.display = 'none';
-  }
-});
-
-// 🚀 Upload using fetch (raw binary)
-async function uploadBlob(blob) {
-  progressContainer.style.display = "block";
-  progressBar.style.width = "0%";
-  statusText.textContent = "Uploading...";
-
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: blob // let browser set the headers
-    });
-
-    const result = await response.json();
-    progressBar.style.width = "100%";
-
-    if (response.ok && result.status === "success") {
-      statusText.textContent = "✅ Uploaded!";
-      console.log("File uploaded:", result.fileUrl);
-    } else {
-      throw new Error(result.message || "Upload failed");
-    }
-  } catch (err) {
-    console.error(err);
-    statusText.textContent = "⚠️ Error: " + err.message;
-  }
-
-  setTimeout(() => {
-    progressContainer.style.display = "none";
-    progressBar.style.width = "0%";
-    statusText.textContent = "";
-  }, 2000);
-}
-</script>
+  </script>
 </body>
 </html>
