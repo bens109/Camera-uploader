@@ -1,184 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Camera & File Upload to Google Drive</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #111;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-    video, img {
-      width: 100%;
-      max-width: 400px;
-      height: auto;
-      border-radius: 12px;
-      margin: 10px 0;
-      background: black;
-      object-fit: cover;
-    }
-    .controls {
-      margin: 10px 0;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-    button, label {
-      font-size: 16px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      background: #333;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover, label:hover { background: #555; }
-    #progressContainer {
-      width: 100%;
-      max-width: 400px;
-      height: 8px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 4px;
-      margin: 10px auto;
-      overflow: hidden;
-      display: none;
-    }
-    #progressBar {
-      height: 100%;
-      width: 0%;
-      background: #00ff7f;
-      transition: width 0.3s;
-    }
-    #statusText {
-      margin-top: 10px;
-      font-size: 14px;
-    }
-    input[type="file"] {
-      display: none;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Drive Upload Test</title>
 </head>
 <body>
-  <h2>📸 Upload Image to Google Drive</h2>
-  
-  <video id="camera" autoplay playsinline></video>
-  <img id="preview" style="display:none;">
-
-  <div class="controls">
-    <button id="captureBtn">📷 Capture</button>
-    <label for="fileInput">📂 Choose File</label>
-    <button id="switchBtn">🔁 Switch Camera</button>
-  </div>
-
   <input type="file" id="fileInput" accept="image/*">
-
-  <div id="progressContainer">
-    <div id="progressBar"></div>
-  </div>
-  <div id="statusText"></div>
+  <button id="uploadBtn">Upload</button>
+  <p id="status"></p>
 
   <script>
-    // ✅ Replace with your deployed Apps Script Web App URL:
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXgRlQJFiJHwYu-fZlM7kToSlM3u80s1TaW3QBK1ld6NIuimt2nzfPNh4QwrCZVEwzqw/exec";
 
-    const video = document.getElementById('camera');
-    const preview = document.getElementById('preview');
-    const captureBtn = document.getElementById('captureBtn');
-    const switchBtn = document.getElementById('switchBtn');
-    const fileInput = document.getElementById('fileInput');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const statusText = document.getElementById('statusText');
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return alert("Select a file first");
 
-    let stream, track;
-    let facingMode = 'environment'; // start with back camera
+      document.getElementById('status').textContent = "Uploading...";
 
-    async function initCamera() {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode }
-        });
-        video.srcObject = stream;
-        track = stream.getVideoTracks()[0];
-      } catch (err) {
-        alert("Camera error: " + err.message);
-      }
-    }
-
-    async function capturePhoto() {
-      if (!track) return alert("Camera not started");
-
-      const settings = track.getSettings();
-      const canvas = document.createElement('canvas');
-      canvas.width = settings.width || 1280;
-      canvas.height = settings.height || 720;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
-
-      preview.src = URL.createObjectURL(blob);
-      preview.style.display = 'block';
-
-      await uploadBlob(blob);
-    }
-
-    async function uploadBlob(blob) {
-      progressContainer.style.display = "block";
-      progressBar.style.width = "0%";
-      statusText.textContent = "Uploading...";
+      const base64 = await toBase64(file);
+      const payload = {
+        fileName: file.name,
+        mimeType: file.type,
+        file: base64
+      };
 
       try {
-        const response = await fetch(SCRIPT_URL, {
+        const res = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": blob.type || "application/octet-stream" },
-          body: blob
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
-
-        const text = await response.text();
-        console.log("Response:", text);
-        const result = JSON.parse(text);
-        progressBar.style.width = "100%";
-
-        if (response.ok && result.status === "success") {
-          statusText.textContent = "✅ Uploaded: " + result.fileName;
-        } else {
-          throw new Error(result.message || "Upload failed");
-        }
+        const data = await res.json();
+        document.getElementById('status').innerHTML =
+          data.status === "success"
+            ? `✅ Uploaded: <a href="${data.fileUrl}" target="_blank">${data.fileName}</a>`
+            : `❌ Error: ${data.message}`;
       } catch (err) {
-        statusText.textContent = "⚠️ Upload error: " + err.message;
+        document.getElementById('status').textContent = "❌ Upload failed: " + err.message;
       }
+    });
 
-      setTimeout(() => {
-        progressContainer.style.display = "none";
-        progressBar.style.width = "0%";
-        statusText.textContent = "";
-      }, 3000);
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
-
-    // Event listeners
-    captureBtn.addEventListener('click', capturePhoto);
-    switchBtn.addEventListener('click', () => {
-      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
-      initCamera();
-    });
-
-    fileInput.addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (file) {
-        preview.src = URL.createObjectURL(file);
-        preview.style.display = 'block';
-        uploadBlob(file);
-      }
-    });
-
-    // Start camera
-    initCamera();
   </script>
 </body>
 </html>
