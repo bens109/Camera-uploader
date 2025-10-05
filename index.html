@@ -2,58 +2,156 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Photo Upload</title>
+  <title>Camera & File Upload to Google Drive</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #progressContainer { display: none; margin-top: 10px; }
-    #progressBar { width: 0%; height: 10px; background: #4caf50; transition: width 0.3s; }
-    #statusText { margin-top: 8px; }
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    video, img {
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      border-radius: 12px;
+      margin: 10px 0;
+      background: black;
+      object-fit: cover;
+    }
+    .controls {
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    button, label {
+      font-size: 16px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #333;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover, label:hover { background: #555; }
+    #progressContainer {
+      width: 100%;
+      max-width: 400px;
+      height: 8px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+      margin: 10px auto;
+      overflow: hidden;
+      display: none;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: #00ff7f;
+      transition: width 0.3s;
+    }
+    #statusText {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    input[type="file"] {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h2>📸 Upload Photo</h2>
-  <input type="file" accept="image/*" id="fileInput">
-  <div id="progressContainer">
-    <div id="progressBar"></div>
-    <div id="statusText"></div>
+  <h2>📸 Upload Image to Google Drive</h2>
+  
+  <video id="camera" autoplay playsinline></video>
+  <img id="preview" style="display:none;">
+
+  <div class="controls">
+    <button id="captureBtn">📷 Capture</button>
+    <label for="fileInput">📂 Choose File</label>
+    <button id="switchBtn">🔁 Switch Camera</button>
   </div>
 
+  <input type="file" id="fileInput" accept="image/*">
+
+  <div id="progressContainer">
+    <div id="progressBar"></div>
+  </div>
+  <div id="statusText"></div>
+
   <script>
+    // ✅ Replace with your deployed Apps Script Web App URL:
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXgRlQJFiJHwYu-fZlM7kToSlM3u80s1TaW3QBK1ld6NIuimt2nzfPNh4QwrCZVEwzqw/exec";
+
+    const video = document.getElementById('camera');
+    const preview = document.getElementById('preview');
+    const captureBtn = document.getElementById('captureBtn');
+    const switchBtn = document.getElementById('switchBtn');
     const fileInput = document.getElementById('fileInput');
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
     const statusText = document.getElementById('statusText');
 
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    let stream, track;
+    let facingMode = 'environment'; // start with back camera
 
+    async function initCamera() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode }
+        });
+        video.srcObject = stream;
+        track = stream.getVideoTracks()[0];
+      } catch (err) {
+        alert("Camera error: " + err.message);
+      }
+    }
+
+    async function capturePhoto() {
+      if (!track) return alert("Camera not started");
+
+      const settings = track.getSettings();
+      const canvas = document.createElement('canvas');
+      canvas.width = settings.width || 1280;
+      canvas.height = settings.height || 720;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
+
+      preview.src = URL.createObjectURL(blob);
+      preview.style.display = 'block';
+
+      await uploadBlob(blob);
+    }
+
+    async function uploadBlob(blob) {
       progressContainer.style.display = "block";
       progressBar.style.width = "0%";
       statusText.textContent = "Uploading...";
 
-      const formData = new FormData();
-      formData.append("file", file, file.name);
-
       try {
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: formData
+          headers: { "Content-Type": blob.type || "application/octet-stream" },
+          body: blob
         });
 
-        const result = await response.json();
+        const text = await response.text();
+        console.log("Response:", text);
+        const result = JSON.parse(text);
         progressBar.style.width = "100%";
 
         if (response.ok && result.status === "success") {
           statusText.textContent = "✅ Uploaded: " + result.fileName;
-          console.log("File URL:", result.fileUrl);
         } else {
           throw new Error(result.message || "Upload failed");
         }
       } catch (err) {
-        console.error("Upload error:", err);
-        statusText.textContent = "⚠️ Error: " + err.message;
+        statusText.textContent = "⚠️ Upload error: " + err.message;
       }
 
       setTimeout(() => {
@@ -61,7 +159,26 @@
         progressBar.style.width = "0%";
         statusText.textContent = "";
       }, 3000);
+    }
+
+    // Event listeners
+    captureBtn.addEventListener('click', capturePhoto);
+    switchBtn.addEventListener('click', () => {
+      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+      initCamera();
     });
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        uploadBlob(file);
+      }
+    });
+
+    // Start camera
+    initCamera();
   </script>
 </body>
 </html>
