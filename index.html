@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Image Uploader</title>
   <style>
     body {
@@ -67,20 +67,18 @@
 <body>
   <div class="uploader">
     <h1>Upload Your Photo</h1>
-    <p>Choose an image from your phone and upload it directly to our Drive.</p>
+    <p>Select a photo from your phone’s gallery.</p>
     <form id="uploadForm">
-      <input type="file" id="fileInput" name="file" accept="image/*" capture="environment" required>
+      <input type="file" id="fileInput" name="file" accept="image/*" required>
       <label for="fileInput">Choose Image</label>
       <div class="status" id="status"></div>
     </form>
   </div>
 
   <script>
-    const uploadForm = document.getElementById('uploadForm');
-    const fileInput = document.getElementById('fileInput');
     const statusDiv = document.getElementById('status');
-
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXgRlQJFiJHwYu-fZlM7kToSlM3u80s1TaW3QBK1ld6NIuimt2nzfPNh4QwrCZVEwzqw/exec";
+    const fileInput = document.getElementById('fileInput');
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4MEvyKMEkflm87hFDYP3fJAfTx57870V_VdNRjtfVEzehfqM2YcK7Gv7k-aomeftwgg/exec";
 
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files[0];
@@ -88,17 +86,16 @@
 
       statusDiv.textContent = "📤 Uploading...";
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
           body: formData,
         });
+        const result = await res.json();
 
-        const result = await response.json();
-
-        if (result.status === 'success') {
+        if (result.status === "success") {
           statusDiv.innerHTML = `✅ Uploaded! <br><a href="${result.fileUrl}" target="_blank">View File</a>`;
         } else {
           statusDiv.textContent = `❌ Error: ${result.message}`;
