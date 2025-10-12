@@ -1,247 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Polaroid Camera</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload to Ben’s Drive</title>
   <style>
-    html, body { margin:0; padding:0; height:100%; background:#222; font-family:sans-serif; overflow:hidden; }
-    #camera-container { position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:center; background:#111; }
-    video { width:100%; height:100%; object-fit:cover; transform: scaleX(1); }
-    #preview { position:absolute; bottom:120px; right:20px; width:180px; height:230px; border:10px solid white; border-bottom-width:40px; border-radius:10px; box-shadow:0 8px 15px rgba(0,0,0,0.5); display:none; object-fit:cover; z-index:3; transition:opacity 0.3s ease; background:white; }
-    #flash { position:absolute; top:0; left:0; width:100%; height:100%; background:white; opacity:0; z-index:4; }
-    #focus-ring { position:absolute; width:100px; height:100px; border:3px solid yellow; border-radius:50%; pointer-events:none; display:none; transform:translate(-50%, -50%); z-index:6; }
-    #top-controls { position:absolute; top:20px; width:100%; display:flex; justify-content:space-between; padding:0 20px; z-index:5; }
-    .top-button { background:rgba(255,255,255,0.3); border:2px solid white; color:white; border-radius:50%; width:270px; height:270px; font-size:108px; }
-    #controls { position:absolute; bottom:50px; width:100%; display:flex; justify-content:center; z-index:5; }
-    #shutter-button { border:6px solid white; background:rgba(255,255,255,0.3); border-radius:50%; width:420px; height:420px; font-size:150px; }
-    #zoom-slider { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:60%; z-index:5; }
-    #status-container { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:80%; max-width:600px; background:rgba(0,0,0,0.7); border-radius:20px; padding:20px; z-index:6; display:none; text-align:center; color:#fff; }
-    #status-text { font-size:28px; margin-bottom:10px; }
-    .progress-bar { width:100%; height:25px; background:#444; border-radius:15px; overflow:hidden; margin-bottom:10px; }
-    .progress-fill { width:0%; height:100%; background:#0f0; transition:width 0.2s; }
-    #fileInput { display:none; }
+    body {
+      font-family: "Inter", Arial, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin: 0;
+      color: #222;
+    }
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      font-size: 0.95rem;
+      color: #555;
+      margin-bottom: 1.5rem;
+    }
+    input[type="file"] {
+      margin: 1rem 0;
+      display: block;
+      width: 100%;
+      padding: 0.7rem;
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    input[type="file"]:hover {
+      border-color: #0078ff;
+    }
+    button {
+      background: #0078ff;
+      color: white;
+      border: none;
+      padding: 0.7rem 1.5rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #005fcc;
+    }
+    .progress {
+      width: 100%;
+      height: 6px;
+      background: #eee;
+      border-radius: 3px;
+      margin-top: 1rem;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #0078ff;
+      transition: width 0.2s;
+    }
+    #message {
+      margin-top: 1rem;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
-  <div id="camera-container">
-    <video autoplay playsinline></video>
-    <div id="focus-ring"></div>
-    <img id="preview"/>
-    <div id="flash"></div>
+  <div class="card">
+    <h1>Upload Your Files</h1>
+    <p>Choose a photo or document to upload securely.</p>
 
-    <div id="top-controls">
-      <button id="flashButton" class="top-button" onclick="toggleFlash()">💡</button>
-      <div style="display:flex;gap:10px;">
-        <button id="uploadButton" class="top-button" onclick="triggerFileInput()">📁</button>
-        <button class="top-button" onclick="flipCamera()">🔄</button>
-      </div>
-    </div>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" name="file" accept="image/*,.pdf,.doc,.docx,.txt" required />
+      <button type="submit">Upload</button>
+    </form>
 
-    <input type="file" id="fileInput" accept="image/*" multiple onchange="uploadSelectedFiles(this.files)">
-    <div id="controls">
-      <button id="shutter-button" onclick="takePhoto()">📷</button>
-    </div>
-    <input type="range" id="zoom-slider" min="1" max="3" step="0.01" value="1">
-
-    <div id="status-container">
-      <div id="status-text"></div>
-      <div class="progress-bar">
-        <div id="image-progress" class="progress-fill"></div>
-      </div>
-      <div class="progress-bar">
-        <div id="batch-progress" class="progress-fill"></div>
-      </div>
-    </div>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div id="message"></div>
   </div>
 
-  <canvas style="display:none;"></canvas>
-  <audio id="shutter" src="https://actions.google.com/sounds/v1/camera/shutter_click.ogg" preload="auto"></audio>
-
   <script>
-    // ========== CONFIG: your Google Apps Script URL ==============
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxZ7MCt4yPZqbrnOVr4yTp2gl1oDrhSJnXrUiQ3AIAdj6UHB3B8sgzoCO0aGFlFxbBi/exec';
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.querySelector('.progress');
+    const message = document.getElementById('message');
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbVi9uMBjhIjMaYpgImRcnGx5g-f8tvO8DJwMbqTl4MAUmJtkpx1U1aHV0ySv-PIvX/exec";
 
-    let currentFacingMode = 'environment',
-        stream = null,
-        track = null,
-        flashOn = false;
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return alert("Please select a file first.");
 
-    async function initCamera(){
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: currentFacingMode,
-            width: { ideal: 4096 }, height: { ideal: 2160 }
-          }
-        });
-        const video = document.querySelector('video');
-        video.srcObject = stream;
-        video.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-        await video.play();
-        track = stream.getVideoTracks()[0];
-      } catch (err) {
-        showStatus('⚠️ Camera access failed', 0, 0);
-      }
-    }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('filename', file.name);
+      formData.append('mimeType', file.type);
 
-    async function flipCamera(){
-      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-      flashOn = false;
-      await initCamera();
-    }
+      progressContainer.style.display = 'block';
+      message.textContent = "Uploading...";
 
-    async function toggleFlash(){
-      if (!track) return;
-      try {
-        await track.applyConstraints({ advanced: [{ torch: !flashOn }] });
-        flashOn = !flashOn;
-        document.getElementById('flashButton').textContent = flashOn ? '🔦' : '💡';
-      } catch (err) {
-        showStatus('⚠️ Flash not supported', 0, 0);
-      }
-    }
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", SCRIPT_URL);
 
-    function playFlashAnimation(){
-      const flash = document.getElementById('flash');
-      flash.style.opacity = 0.8;
-      setTimeout(() => flash.style.opacity = 0, 100);
-    }
-
-    function showStatus(text, imagePct = 0, batchPct = 0){
-      const container = document.getElementById('status-container');
-      container.style.display = 'block';
-      document.getElementById('status-text').innerHTML = text;
-      document.getElementById('image-progress').style.width = imagePct + '%';
-      document.getElementById('batch-progress').style.width = batchPct + '%';
-    }
-
-    async function takePhoto(){
-      const video = document.querySelector('video');
-      const canvas = document.querySelector('canvas');
-      const ctx = canvas.getContext('2d');
-      const scale = Math.min(1920 / video.videoWidth, 1080 / video.videoHeight, 1);
-      canvas.width = video.videoWidth * scale;
-      canvas.height = video.videoHeight * scale;
-      if (currentFacingMode === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      document.getElementById('shutter').play();
-      playFlashAnimation();
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      showPreview(dataUrl);
-      await uploadCapturedImage(dataUrl);
-    }
-
-    function showPreview(dataUrl){
-      const preview = document.getElementById('preview');
-      preview.src = dataUrl;
-      preview.style.display = 'block';
-      preview.style.opacity = 1;
-      setTimeout(() => { preview.style.opacity = 0; }, 1000);
-    }
-
-    async function uploadCapturedImage(dataUrl){
-      const base64 = dataUrl.split(',')[1];
-      const filename = 'photo_' + Date.now() + '.jpg';
-      showStatus('Uploading 1 of 1', 0, 0);
-      try {
-        const response = await fetch(GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, filename: filename })
-        });
-        const result = await response.json();
-        if (result && result.url) {
-          showStatus(`Uploaded! <a href="${result.url}" target="_blank">View File</a>`, 100, 100);
-        } else {
-          showStatus('❌ Upload failed', 0, 0);
+      xhr.upload.addEventListener("progress", evt => {
+        if (evt.lengthComputable) {
+          const percent = (evt.loaded / evt.total) * 100;
+          progressBar.style.width = percent + "%";
         }
-      } catch (err) {
-        showStatus('❌ Upload error', 0, 0);
-        console.error(err);
-      }
-      setTimeout(() => document.getElementById('status-container').style.display = 'none', 2000);
-    }
+      });
 
-    function triggerFileInput(){
-      document.getElementById('fileInput').click();
-    }
-
-    async function uploadSelectedFiles(files){
-      const total = files.length;
-      if (total === 0) return;
-      showStatus(`Uploading 0 of ${total}`, 0, 0);
-      let completed = 0;
-
-      const updateProgress = () => {
-        completed++;
-        const batchPct = (completed / total) * 100;
-        showStatus(`Uploaded ${completed} of ${total}`, 100, batchPct);
+      xhr.onload = () => {
+        progressBar.style.width = "100%";
+        if (xhr.status === 200) {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.success) {
+              message.textContent = "✅ Upload complete: " + file.name;
+            } else {
+              message.textContent = "⚠️ Upload failed.";
+            }
+          } catch {
+            message.textContent = "✅ File uploaded!";
+          }
+        } else {
+          message.textContent = "❌ Upload failed. Try again.";
+        }
       };
 
-      for (const file of files) {
-        const reader = new FileReader();
-        await new Promise((resolve, reject) => {
-          reader.onload = async (e) => {
-            const dataUrl = e.target.result;
-            showPreview(dataUrl);
-            const base64 = dataUrl.split(',')[1];
-            const filename = file.name || 'uploaded_' + Date.now() + '.jpg';
-            try {
-              const response = await fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64, filename: filename })
-              });
-              const result = await response.json();
-              // optionally you can inspect result.url
-            } catch (err) {
-              console.error('Upload error for file:', file.name, err);
-            }
-            updateProgress();
-            resolve();
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      }
-      // all done
-    }
+      xhr.onerror = () => {
+        message.textContent = "❌ Connection error. Please retry.";
+      };
 
-    document.getElementById('zoom-slider').addEventListener('input', async e => {
-      if (track) {
-        try {
-          await track.applyConstraints({ advanced: [{ zoom: e.target.value }] });
-        } catch (e) {
-          console.log('Zoom not supported');
-        }
-      }
+      xhr.send(formData);
     });
-
-    const videoContainer = document.getElementById('camera-container');
-    const focusRing = document.getElementById('focus-ring');
-    videoContainer.addEventListener('click', async e => {
-      const rect = videoContainer.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      focusRing.style.left = `${e.clientX}px`;
-      focusRing.style.top = `${e.clientY}px`;
-      focusRing.style.display = 'block';
-      setTimeout(() => focusRing.style.display = 'none', 800);
-      if (track && track.getCapabilities().focusMode) {
-        try {
-          await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusPointX: x, focusPointY: y }] });
-        } catch (e) {
-          console.log('Tap focus not supported');
-        }
-      }
-    });
-
-    window.onload = initCamera;
   </script>
 </body>
 </html>
