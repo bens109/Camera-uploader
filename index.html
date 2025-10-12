@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Upload to Ben’s Drive</title>
+  <title>Upload to Drive</title>
   <style>
     body {
       font-family: "Inter", Arial, sans-serif;
@@ -101,54 +101,43 @@
     const progressBar = document.getElementById('progressBar');
     const progressContainer = document.querySelector('.progress');
     const message = document.getElementById('message');
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNzTckrWscUUSrPWx1uTXVQD39mW5ygzI9WkeQvnc1TGEVZLQTlLDqW58Q9hoyMVeR/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzOWGO5PArcu5M4NK8hblhWbgWuKdQec6DEeCK9pD4VXGCqtauftZQOGfBVs0Zv1itc/exec";
 
     form.addEventListener('submit', e => {
       e.preventDefault();
       const file = fileInput.files[0];
       if (!file) return alert("Please select a file first.");
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('filename', file.name);
-      formData.append('mimeType', file.type);
-
       progressContainer.style.display = 'block';
       message.textContent = "Uploading...";
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", SCRIPT_URL);
-
-      xhr.upload.addEventListener("progress", evt => {
-        if (evt.lengthComputable) {
-          const percent = (evt.loaded / evt.total) * 100;
-          progressBar.style.width = percent + "%";
-        }
-      });
-
-      xhr.onload = () => {
-        progressBar.style.width = "100%";
-        if (xhr.status === 200) {
-          try {
-            const res = JSON.parse(xhr.responseText);
-            if (res.success) {
-              message.textContent = "✅ Upload complete: " + file.name;
-            } else {
-              message.textContent = "⚠️ Upload failed.";
-            }
-          } catch {
-            message.textContent = "✅ File uploaded!";
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64Data = reader.result.split(',')[1]; // strip "data:*/*;base64,"
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            mimeType: file.type,
+            data: base64Data
+          })
+        })
+        .then(res => res.json())
+        .then(res => {
+          progressBar.style.width = "100%";
+          if(res.success){
+            message.textContent = "✅ Upload complete: " + file.name;
+          } else {
+            message.textContent = "❌ Upload failed: " + (res.error || 'Unknown error');
           }
-        } else {
-          message.textContent = "❌ Upload failed. Try again.";
-        }
+        })
+        .catch(err => {
+          message.textContent = "❌ Connection error. Try again.";
+          console.error(err);
+        });
       };
-
-      xhr.onerror = () => {
-        message.textContent = "❌ Connection error. Please retry.";
-      };
-
-      xhr.send(formData);
+      reader.readAsDataURL(file);
     });
   </script>
 </body>
